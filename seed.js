@@ -8,7 +8,9 @@ const seedVets = [
     specialisation: 'Cattle',
     village: 'Jaipur',
     distanceKm: 4,
-    onDuty: true
+    onDuty: true,
+    lat: 26.9484,
+    lng: 75.8013
   },
   {
     name: 'Dr. Sunita Sharma',
@@ -16,7 +18,9 @@ const seedVets = [
     specialisation: 'Buffalo',
     village: 'Jaipur',
     distanceKm: 7,
-    onDuty: true
+    onDuty: true,
+    lat: 26.8750,
+    lng: 75.7480
   },
   {
     name: 'Dr. Amit Verma',
@@ -24,7 +28,9 @@ const seedVets = [
     specialisation: 'Goat',
     village: 'Jaipur',
     distanceKm: 12,
-    onDuty: true
+    onDuty: true,
+    lat: 26.9850,
+    lng: 75.8450
   }
 ];
 

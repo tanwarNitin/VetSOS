@@ -1,5 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import L from 'leaflet';
 import { socket } from './socket';
+
+const farmerIcon = L.divIcon({
+  className: 'custom-div-icon',
+  html: '<div style="background-color: #ef4444; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+  popupAnchor: [0, -7]
+});
+
+function getVetIcon(onDuty) {
+  const color = onDuty ? '#22c55e' : '#6b7280';
+  return L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+    popupAnchor: [0, -7]
+  });
+}
 
 export default function App() {
   const [user, setUser] = useState(null); // { role: 'Farmer' | 'Vet', name: '', phone: '' }
@@ -17,6 +37,12 @@ export default function App() {
   });
   const [currentSos, setCurrentSos] = useState(null);
   const [farmerError, setFarmerError] = useState('');
+
+  // Map refs
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const vetMarkersRef = useRef({});
+  const circleRef = useRef(null);
 
   // Vet state
   const [sosList, setSosList] = useState([]);
@@ -78,6 +104,99 @@ export default function App() {
       socket.off('sos_updated', handleSosUpdated);
     };
   }, []);
+
+  // Leaflet Map Initialization and Vet Marker Updates
+  useEffect(() => {
+    if (user?.role !== 'Farmer') return;
+    if (!mapContainerRef.current) return;
+
+    let map = mapInstanceRef.current;
+    if (!map) {
+      map = L.map(mapContainerRef.current).setView([26.9124, 75.7873], 12);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Farmer marker (red dot)
+      L.marker([26.9124, 75.7873], { icon: farmerIcon })
+        .addTo(map)
+        .bindPopup('<strong>You (Farmer - Jaipur)</strong>');
+
+      mapInstanceRef.current = map;
+    }
+
+    // Clear and redraw vet markers
+    Object.values(vetMarkersRef.current).forEach((m) => m.remove());
+    vetMarkersRef.current = {};
+
+    vets.forEach((vet) => {
+      if (vet.lat && vet.lng) {
+        const marker = L.marker([vet.lat, vet.lng], {
+          icon: getVetIcon(vet.onDuty)
+        })
+          .addTo(map)
+          .bindPopup(
+            `<strong>${vet.name}</strong><br/>Specialisation: ${vet.specialisation}<br/>Distance: ${vet.distanceKm} km`
+          );
+
+        const id = vet.id || vet._id;
+        vetMarkersRef.current[id] = marker;
+      }
+    });
+  }, [user?.role, vets]);
+
+  // Clean up map when switching away from farmer view or unmounting
+  useEffect(() => {
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        circleRef.current = null;
+        vetMarkersRef.current = {};
+      }
+    };
+  }, [user?.role]);
+
+  // Handle radius circle updates
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (currentSos && currentSos.status === 'PENDING') {
+      const radiusMeters = (currentSos.radiusKm || 10) * 1000;
+      if (circleRef.current) {
+        circleRef.current.setRadius(radiusMeters);
+        if (!map.hasLayer(circleRef.current)) {
+          circleRef.current.addTo(map);
+        }
+      } else {
+        circleRef.current = L.circle([26.9124, 75.7873], {
+          radius: radiusMeters,
+          color: 'blue',
+          fillOpacity: 0.1
+        }).addTo(map);
+      }
+    } else {
+      if (circleRef.current) {
+        circleRef.current.remove();
+        circleRef.current = null;
+      }
+    }
+  }, [currentSos?.status, currentSos?.radiusKm]);
+
+  // Pan to vet marker and open popup when vet card is clicked
+  const handleVetCardClick = (vet) => {
+    const map = mapInstanceRef.current;
+    const id = vet.id || vet._id;
+    const marker = vetMarkersRef.current[id];
+    if (map && vet.lat && vet.lng) {
+      map.setView([vet.lat, vet.lng], 13);
+      if (marker) {
+        marker.openPopup();
+      }
+    }
+  };
 
   // Handle Home login
   const handleHomeContinue = (e) => {
@@ -275,6 +394,9 @@ export default function App() {
       ) : user.role === 'Farmer' ? (
         /* 2. Farmer View */
         <div className="farmer-view">
+          {/* Leaflet Map above Nearby Veterinarians list */}
+          <div ref={mapContainerRef} className="farmer-map"></div>
+
           {/* Nearby Vets Section */}
           <div className="card vets-card">
             <h3>Nearby Veterinarians</h3>
@@ -283,7 +405,12 @@ export default function App() {
                 <p>Loading vets...</p>
               ) : (
                 vets.map((v) => (
-                  <div key={v.id || v._id} className="vet-item">
+                  <div
+                    key={v.id || v._id}
+                    className="vet-item vet-item-clickable"
+                    onClick={() => handleVetCardClick(v)}
+                    title="Click to view on map"
+                  >
                     <div className="vet-name">{v.name}</div>
                     <div className="vet-details">
                       <span><strong>Specialisation:</strong> {v.specialisation}</span>
@@ -532,4 +659,3 @@ export default function App() {
     </div>
   );
 }
-

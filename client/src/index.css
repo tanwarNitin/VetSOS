@@ -185,6 +185,30 @@ body {
 }
 
 /* Vets List */
+.farmer-map {
+  height: 350px;
+  width: 100%;
+  z-index: 0;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid #e5e7eb;
+}
+
+.custom-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.vet-item-clickable {
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.vet-item-clickable:hover {
+  background-color: #f3f4f6;
+  border-color: #2563eb;
+}
+
 .vets-card h3 {
   margin-bottom: 12px;
   font-size: 16px;

@@ -7,7 +7,9 @@ const vetSchema = new mongoose.Schema({
   specialisation: { type: String, required: true },
   village: { type: String, required: true },
   distanceKm: { type: Number, required: true },
-  onDuty: { type: Boolean, default: true }
+  onDuty: { type: Boolean, default: true },
+  lat: { type: Number },
+  lng: { type: Number }
 });
 
 const sosRequestSchema = new mongoose.Schema({
@@ -120,7 +122,9 @@ const Vet = {
       specialisation: data.specialisation,
       village: data.village,
       distanceKm: data.distanceKm,
-      onDuty: data.onDuty !== undefined ? data.onDuty : true
+      onDuty: data.onDuty !== undefined ? data.onDuty : true,
+      lat: data.lat,
+      lng: data.lng
     };
     wrapMemoryDoc(doc);
     memoryStore.vets.push(doc);

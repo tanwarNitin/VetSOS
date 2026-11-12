@@ -4,8 +4,9 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 require('dotenv').config();
 
-const { connectDB } = require('./db');
+const { connectDB, isUsingInMemory, memoryStore } = require('./db');
 const { Vet, SOSRequest, formatDoc } = require('./models');
+const mongoose = require('mongoose');
 const { seed } = require('./seed');
 
 const app = express();
@@ -36,6 +37,41 @@ app.get('/api/vets', async (req, res) => {
     res.status(200).json(vets);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/vets/:id/toggle-duty -> find vet by id, flip onDuty true to false or false to true, emit Socket.io event vet_updated with the updated vet, return the updated vet as JSON. If vet not found, return 404 { error: "vet not found" }.
+app.post('/api/vets/:id/toggle-duty', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let updatedVet = null;
+
+    if (isUsingInMemory()) {
+      const vet = memoryStore.vets.find(
+        (v) => (v._id && v._id.toString() === id) || (v.id && v.id.toString() === id)
+      );
+      if (!vet) {
+        return res.status(404).json({ error: 'vet not found' });
+      }
+      vet.onDuty = !vet.onDuty;
+      updatedVet = formatDoc(vet);
+    } else {
+      if (!mongoose.isValidObjectId(id)) {
+        return res.status(404).json({ error: 'vet not found' });
+      }
+      const vet = await mongoose.models.Vet.findById(id);
+      if (!vet) {
+        return res.status(404).json({ error: 'vet not found' });
+      }
+      vet.onDuty = !vet.onDuty;
+      await vet.save();
+      updatedVet = formatDoc(vet);
+    }
+
+    io.emit('vet_updated', updatedVet);
+    return res.status(200).json(updatedVet);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 });
 

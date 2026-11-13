@@ -193,6 +193,35 @@ app.post('/api/sos/:id/complete', async (req, res) => {
   }
 });
 
+// POST /api/sos/:id/cancel
+// - If not found, return 404 { "error": "sos not found" }
+// - If status is IN_PROGRESS, COMPLETED or CANCELLED, return 409 { "error": "cannot cancel this SOS" }
+// - Otherwise (PENDING or ACCEPTED only) set status CANCELLED, stop radius expansion, emit sos_updated, return updated SOS
+app.post('/api/sos/:id/cancel', async (req, res) => {
+  try {
+    const sos = await SOSRequest.findById(req.params.id);
+    if (!sos) {
+      return res.status(404).json({ error: 'sos not found' });
+    }
+    if (
+      sos.status === 'IN_PROGRESS' ||
+      sos.status === 'COMPLETED' ||
+      sos.status === 'CANCELLED'
+    ) {
+      return res.status(409).json({ error: 'cannot cancel this SOS' });
+    }
+
+    sos.status = 'CANCELLED';
+    await sos.save();
+
+    const formatted = formatDoc(sos);
+    io.emit('sos_updated', formatted);
+    res.status(200).json(formatted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Socket.io + radius:
 // Every 10 seconds, for each SOS still PENDING, increase radiusKm by 10 and emit sos_updated.
 setInterval(async () => {

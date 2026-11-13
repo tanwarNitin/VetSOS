@@ -340,6 +340,33 @@ export default function App() {
     }
   };
 
+  // Farmer or Vet: Cancel SOS
+  const handleCancelSos = async (sos) => {
+    const id = sos.id || sos._id;
+    try {
+      const res = await fetch(`/api/sos/${id}/cancel`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setSosList((prev) =>
+          prev.map((item) => ((item.id || item._id) === id ? updated : item))
+        );
+        setCurrentSos((prev) => {
+          if (prev && (prev.id || prev._id) === id) {
+            return updated;
+          }
+          return prev;
+        });
+      } else {
+        const errorData = await res.json();
+        console.error('Cancel error:', errorData.error);
+      }
+    } catch (err) {
+      console.error('Cancel error:', err);
+    }
+  };
+
   // Compute stats from sosList
   const stats = {
     total: sosList.length,
@@ -350,7 +377,9 @@ export default function App() {
   };
 
   // Filter active and completed SOS for Vet view
-  const activeSosList = sosList.filter((s) => s.status !== 'COMPLETED');
+  const activeSosList = sosList.filter(
+    (s) => s.status !== 'COMPLETED' && s.status !== 'CANCELLED'
+  );
   const completedSosList = sosList
     .filter((s) => s.status === 'COMPLETED')
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -470,38 +499,6 @@ export default function App() {
           {user.role === 'Farmer' ? (
             /* 2. Farmer View */
             <div className="farmer-view">
-              {/* Leaflet Map above Nearby Veterinarians list */}
-              <div ref={mapContainerRef} className="farmer-map"></div>
-
-              {/* Nearby Vets Section */}
-              <div className="card vets-card">
-                <h3>Nearby Veterinarians</h3>
-                <div className="vets-list">
-                  {vets.length === 0 ? (
-                    <p>Loading vets...</p>
-                  ) : (
-                    vets.map((v) => (
-                      <div
-                        key={v.id || v._id}
-                        className="vet-item vet-item-clickable"
-                        onClick={() => handleVetCardClick(v)}
-                        title="Click to view on map"
-                      >
-                        <div className="vet-name">{v.name}</div>
-                        <div className="vet-details">
-                          <span><strong>Specialisation:</strong> {v.specialisation}</span>
-                          <span><strong>Village:</strong> {v.village}</span>
-                          <span><strong>Distance:</strong> {v.distanceKm} km</span>
-                          <span className={`status-pill ${v.onDuty ? 'on-duty' : 'off-duty'}`}>
-                            {v.onDuty ? 'On Duty' : 'Off Duty'}
-                          </span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
               {/* SOS Request Form */}
               <div className="card sos-form-card">
                 <h3>Emergency Animal SOS</h3>
@@ -599,7 +596,7 @@ export default function App() {
                 </form>
               </div>
 
-              {/* Tracking Card below the form */}
+              {/* Active SOS Tracking Card (if an SOS has been created) */}
               {currentSos && (
                 <>
                   <div className="card tracking-card">
@@ -641,39 +638,90 @@ export default function App() {
                           Case completed by {currentSos.acceptedBy}.
                         </p>
                       )}
+                      {currentSos.status === 'CANCELLED' && (
+                        <p className="cancel-text">
+                          SOS cancelled.
+                        </p>
+                      )}
                     </div>
+
+                    {(currentSos.status === 'PENDING' || currentSos.status === 'ACCEPTED') && (
+                      <div style={{ marginTop: '16px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger"
+                          onClick={() => handleCancelSos(currentSos)}
+                        >
+                          Cancel SOS
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  {/* New Feature 2: Status Timeline on Farmer Tracking */}
-                  <div className="card timeline-card">
-                    <h3>Status Timeline</h3>
-                    <div className="timeline-container">
-                      {['PENDING', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED'].map((step, idx) => {
-                        const stepOrder = ['PENDING', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED'];
-                        const currentIndex = stepOrder.indexOf(currentSos.status);
-                        let stepClass = 'timeline-future';
-                        if (currentSos.status === 'COMPLETED') {
-                          stepClass = 'timeline-completed';
-                        } else if (idx < currentIndex) {
-                          stepClass = 'timeline-completed';
-                        } else if (idx === currentIndex) {
-                          stepClass = 'timeline-current';
-                        }
+                  {/* Status Timeline */}
+                  {currentSos.status !== 'CANCELLED' && (
+                    <div className="card timeline-card">
+                      <h3>Status Timeline</h3>
+                      <div className="timeline-container">
+                        {['PENDING', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED'].map((step, idx) => {
+                          const stepOrder = ['PENDING', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED'];
+                          const currentIndex = stepOrder.indexOf(currentSos.status);
+                          let stepClass = 'timeline-future';
+                          if (currentSos.status === 'COMPLETED') {
+                            stepClass = 'timeline-completed';
+                          } else if (idx < currentIndex) {
+                            stepClass = 'timeline-completed';
+                          } else if (idx === currentIndex) {
+                            stepClass = 'timeline-current';
+                          }
 
-                        return (
-                          <React.Fragment key={step}>
-                            <div className={`timeline-step ${stepClass}`}>
-                              <span className="timeline-node"></span>
-                              <span className="timeline-text">{step}</span>
-                            </div>
-                            {idx < 3 && <span className="timeline-arrow">→</span>}
-                          </React.Fragment>
-                        );
-                      })}
+                          return (
+                            <React.Fragment key={step}>
+                              <div className={`timeline-step ${stepClass}`}>
+                                <span className="timeline-node"></span>
+                                <span className="timeline-text">{step}</span>
+                              </div>
+                              {idx < 3 && <span className="timeline-arrow">→</span>}
+                            </React.Fragment>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </>
               )}
+
+              {/* Leaflet Map */}
+              <div ref={mapContainerRef} className="farmer-map"></div>
+
+              {/* Nearby Vets Section */}
+              <div className="card vets-card">
+                <h3>Nearby Veterinarians</h3>
+                <div className="vets-list">
+                  {vets.length === 0 ? (
+                    <p>Loading vets...</p>
+                  ) : (
+                    vets.map((v) => (
+                      <div
+                        key={v.id || v._id}
+                        className="vet-item vet-item-clickable"
+                        onClick={() => handleVetCardClick(v)}
+                        title="Click to view on map"
+                      >
+                        <div className="vet-name">{v.name}</div>
+                        <div className="vet-details">
+                          <span><strong>Specialisation:</strong> {v.specialisation}</span>
+                          <span><strong>Village:</strong> {v.village}</span>
+                          <span><strong>Distance:</strong> {v.distanceKm} km</span>
+                          <span className={`status-pill ${v.onDuty ? 'on-duty' : 'off-duty'}`}>
+                            {v.onDuty ? 'On Duty' : 'Off Duty'}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           ) : (
             /* 3. Vet View */
@@ -772,6 +820,16 @@ export default function App() {
                               onClick={() => handleStart(sos)}
                             >
                               Start
+                            </button>
+                          )}
+
+                          {sos.status === 'ACCEPTED' && isAcceptedByMe && (
+                            <button
+                              type="button"
+                              className="btn btn-outline-danger"
+                              onClick={() => handleCancelSos(sos)}
+                            >
+                              Cancel SOS
                             </button>
                           )}
 

@@ -193,6 +193,16 @@ body {
   border: 1px solid #16a34a;
 }
 
+.btn-outline-danger {
+  background-color: #ffffff;
+  color: #dc2626;
+  border: 1px solid #dc2626;
+}
+
+.btn-outline-danger:hover {
+  background-color: #fee2e2;
+}
+
 /* New Feature 1: Stats Bar */
 .stats-card {
   padding: 16px 20px;
@@ -362,6 +372,11 @@ body {
   font-weight: 600;
 }
 
+.cancel-text {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 /* New Feature 2: Status Timeline */
 .timeline-card {
   padding: 20px 24px;
@@ -456,6 +471,12 @@ body {
   background-color: #dcfce7;
   color: #15803d;
   border: 1px solid #bbf7d0;
+}
+
+.badge-cancelled {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
 /* Vet View */
